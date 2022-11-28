@@ -174,3 +174,12 @@ C | 0  0  2  2  2  0  2  0  4  0  0  0  2  0  0  2
 D | 0  0  2  0  0  4  0  2  2  0  0  0  0  2  0  4 
 E | 0  6  0  0  2  4  0  0  2  0  0  0  0  2  0  0 
 F | 0  2  2  0  0  0  0  0  4  0  2  2  2  0  2  0 
+
+
+
+
+Finding candidates for differential characteristics with alpha = 1 ...
+
+S-Box 1: DeltaX = 6--> DeltaY = D  with probability 16/16
+S-Box 2: DeltaX = 2--> DeltaY = 5  with probability 16/16
+S-Box 4: DeltaX = 6--> DeltaY = D  with probability 16/16

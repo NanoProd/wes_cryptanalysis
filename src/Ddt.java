@@ -135,15 +135,6 @@ public class Ddt {
     }
 
 
-    /*creates difference distribution table*/
-    public void calculateDDT(){
-        for(int i = 0; i < 16; i++){
-            for(int j = 0; j < 16; j++){
-                this.ioDifference(i,j);
-            }
-        }
-    }
-
     public static String intToHex(int a){
         if(a < 10){
             return Integer.toString(a);
@@ -168,6 +159,69 @@ public class Ddt {
         }
     }
 
+    /*
+    * The row and column sums must be equal to 2^^n -> 2^^4 = 16
+    * All entries must be equal
+    * */
+    public boolean verifyTable(){
+        //verify row sum
+        int r;
+        int c;
+        int rowSum;
+        int colSum;
+        for(r = 0; r < 16; r++){
+            rowSum = 0;
+            for(c = 0; c < 16; c++){
+                rowSum += table[r][c];
+            }
+            if(rowSum != 16){
+                System.out.println("Error in table " + this.name);
+                return false;
+            }
+        }
+
+        //verify column sum
+        for(c = 0; c < 16; c++){
+            colSum = 0;
+            for(r = 0; r < 16; r++){
+                colSum+= table[r][c];
+            }
+            if(colSum != 16){
+                System.out.println("Error in table " + this.name);
+                return false;
+            }
+        }
+
+        //verify that all entries are even
+        for(r= 0; r < 16; r++){
+            for(c = 0; c < 16; c++){
+                if(table[r][c] % 2 != 0){
+                    System.out.println("Error in table " + this.name);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+
+    /*creates difference distribution table then verifies if it is a valid table*/
+    public void calculateDDT(){
+        System.out.println("Creating table for " + this.name + "...");
+        for(int i = 0; i < 16; i++){
+            for(int j = 0; j < 16; j++){
+                this.ioDifference(i,j);
+            }
+        }
+
+        boolean success = verifyTable();
+
+        if(success){
+            System.out.println("Table " + this.name + " is validated");
+        } else {
+            System.out.println("Error in table " + this.name);
+        }
+    }
     public static String toEqualWhiteSpace(int a){
 
         if(a < 9){
@@ -200,8 +254,22 @@ public class Ddt {
         System.out.println(output);
     }
 
-    public static void main(String[] args) throws FileNotFoundException {
+    /*find candidates for constructing differential characteristics with given alpha out of 16, given n = 5 -> alpha = 5/16 */
+    public void findCandidates(int n){
+        for(int r = 0; r < 16; r++){
+            for(int c = 0; c < 16; c++){
+                if(!(r == 0 && c == 0)){
+                    if(table[r][c] >= n){
+                        System.out.println(this.name + ": DeltaX = " + intToHex(r) + "--> DeltaY = " + intToHex(c) + "  with probability " + table[r][c] + "/16");
+                    }
+                }
+            }
+        }
+    }
 
+
+    public static void main(String[] args) throws FileNotFoundException {
+        System.out.println("Calculating sbox difference distribution tables...");
         //generate sbox data
         int[] sbox1Data = new int[]{6,12,3,8,14,5,11,1,2,4,13,7,0,10,15,9};
         int[] sbox2Data = new int[]{10,14,15,11,6,8,3,13,7,9,2,12,1,0,4,5};
@@ -222,38 +290,41 @@ public class Ddt {
         Ddt sbox7 = new Ddt(sbox7Data, "S-Box 7");
         Ddt sbox8 = new Ddt(sbox8Data, "S-Box 8");
 
+        //store ddt objects in container
+        Ddt[] objects = new Ddt[8];
+        objects[0] = sbox1;
+        objects[1] = sbox2;
+        objects[2] = sbox3;
+        objects[3] = sbox4;
+        objects[4] = sbox5;
+        objects[5] = sbox6;
+        objects[6] = sbox7;
+        objects[7] = sbox8;
+
         //calculate ddt tables
-        sbox1.calculateDDT();
-        sbox2.calculateDDT();
-        sbox3.calculateDDT();
-        sbox4.calculateDDT();
-        sbox5.calculateDDT();
-        sbox6.calculateDDT();
-        sbox7.calculateDDT();
-        sbox8.calculateDDT();
+        for(Ddt table: objects){
+            table.calculateDDT();
+        }
 
-        //print out results to text file
-        // Creating a File object that
-        // represents the disk file
+        //set output stream to text file
         PrintStream o = new PrintStream(new File("DifferenceDistributionTables.txt"));
-
         // Store current System.out
-        // before assigning a new value
         PrintStream console = System.out;
-
         // Assign o to output stream
-        // using setOut() method
         System.setOut(o);
 
+        //print to file
+        for(Ddt table: objects){
+            table.printDDT();
+        }
 
+        //find candidates for differential characteristics
+        System.out.println("\n\n\n\nFinding candidates for differential characteristics with alpha = 1 ...\n");
+        for(Ddt table: objects){
+            table.findCandidates(16); // alpha = 100%
+        }
 
-        sbox1.printDDT();
-        sbox2.printDDT();
-        sbox3.printDDT();
-        sbox4.printDDT();
-        sbox5.printDDT();
-        sbox6.printDDT();
-        sbox7.printDDT();
-        sbox8.printDDT();
+        System.setOut(console);
+        System.out.println("Success!");
     }
 }
