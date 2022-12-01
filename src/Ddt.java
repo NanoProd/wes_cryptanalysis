@@ -1,7 +1,9 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class Ddt {
     //attributes
@@ -261,13 +263,51 @@ public class Ddt {
                 if(!(r == 0 && c == 0)){
                     if(table[r][c] >= n){
                         System.out.println(this.name + ": DeltaX = " + intToHex(r) + "--> DeltaY = " + intToHex(c) + "  with probability " + table[r][c] + "/16");
+                        System.out.println("finding candidate x1 and x2 to get DeltaX = " + intToHex(r) + " : " + intToBit(r));
+                        List<List<Integer>> candidates = findXORCandidates(intToBit(r));
+                        for(List<Integer> result : candidates){
+                            System.out.println("X1: " + intToHex(result.get(0)) + "  X2: " + intToHex(result.get(1)));
+                        }
+                        System.out.println();
                     }
                 }
             }
         }
     }
 
+    /*find number pairs which will result in the XOR difference given*/
+    public static List<List<Integer>> findXORCandidates(String xor){
+        int[] numbers = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+        List<List<Integer>> result = new ArrayList<>();
+        String s1;
+        String s2;
+        String diff;
 
+        for(int i = 0; i < 16; i++){
+            s1 = intToBit(numbers[i]);
+            for(int j = 0; j < 16; j++){
+                s2 = intToBit(numbers[j]);
+                diff = bitXOR(s1,s2);
+                if(diff.equals(xor)){
+                    //verify that pair doesn't already exist
+                    boolean exists = false;
+                    for(List<Integer> pair: result){
+                        if(pair.get(0) == j && pair.get(1) == i){
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if(!exists){
+                        List<Integer> temp = new ArrayList<>();
+                        temp.add(numbers[i]);
+                        temp.add(numbers[j]);
+                        result.add(temp);
+                    }
+                }
+            }
+        }
+        return result;
+    }
     public static void main(String[] args) throws FileNotFoundException {
         System.out.println("Calculating sbox difference distribution tables...");
         //generate sbox data
