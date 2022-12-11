@@ -47,6 +47,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h> /* for `false` symbol */
+#include <stdint.h> //added by me
 
 #ifdef DEBUG
 #define DEBUG_PRINT(...) do{ fprintf( stderr, __VA_ARGS__ ); } while( false )
@@ -221,7 +222,7 @@ uint64_t wes_encrypt(uint64_t pt, uint64_t master_key)
 	precompute_wes_permutation_mask(); /* Just an optimization: makes permutation step a bit faster */
 
 	/* Do 4 rounds of encryption. */
-	DEBUG_PRINT("** Plaintext: %016llX    Master key: %016llX\n", pt, master_key);
+	DEBUG_PRINT("** Plaintext: %016lX    Master key: %016lX\n", pt, master_key);
 	for(int i = 0; i<4; i++)
 	{
 		DEBUG_PRINT("   input to r%d:  %08X  %08X     rkey = %08X\n", i+1, l, r, rkeys[i]);
@@ -247,7 +248,7 @@ uint64_t wes_decrypt(uint64_t ct, uint64_t master_key)
 	precompute_wes_permutation_mask(); /* Just an optimization: makes permutation step a bit faster */
 
 	/* Do 4 rounds of encryption. */
-	DEBUG_PRINT("** Ciphertext: %016llX    Master key: %016llX\n", ct, master_key);
+	DEBUG_PRINT("** Ciphertext: %016lX    Master key: %016lX\n", ct, master_key);
 	for(int i = 0; i<4; i++)
 	{
 		DEBUG_PRINT("   input to r%d:  %08X  %08X     rkey = %08X\n", i+1, l, r, rkeys[3-i]);
@@ -295,11 +296,11 @@ int main(int argc, char *argv[])
 
 	uint64_t ciphertext = wes_encrypt(plaintext, master_key);
 #ifdef DEBUG
-	printf(" Ciphertext: %016llX\n", ciphertext);
+	printf(" Ciphertext: %016lX\n", ciphertext);
 	uint64_t pt_back = wes_decrypt(ciphertext, master_key);
-	printf(" Back: %016llX\n", pt_back);
+	printf(" Back: %016lX\n", pt_back);
 #else
-	printf("%016llX\n", ciphertext);
+	printf("%016lX\n", ciphertext);
 #endif
 	return 0;
 
