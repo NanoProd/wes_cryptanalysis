@@ -54,9 +54,9 @@
 #else
 #define DEBUG_PRINT(...) do{ } while ( false )
 #endif
-
+//0x4E9C7AC90BCA3B98 -> old master key
 #ifndef MASTERKEY
-#define MASTERKEY 0x4E9C7AC90BCA3B98
+#define MASTERKEY 0x7D64C7A0A1CFBD1D
 #endif
 
 /* WES */
