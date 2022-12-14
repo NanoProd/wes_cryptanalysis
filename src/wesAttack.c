@@ -17,7 +17,7 @@
  *
  * Files: 		
  * 				- Ddt.java  : File used to analyze sboxes to construct character differentials.
- *
+ *              -Main.java : run this file to create the DDT tables
  *
  * */
 
@@ -51,11 +51,12 @@
 #endif
 
 #ifndef MAXPAIRS
-#define MAXPAIRS 1000
+#define MAXPAIRS 100
 #endif
 
 
-int numPairs = 45;
+int numPairs = 20;
+
 uint64_t plaintext1[MAXPAIRS];
 uint64_t plaintext2[MAXPAIRS];
 uint64_t ciphertext1[MAXPAIRS];
@@ -254,54 +255,90 @@ uint64_t wes_decrypt(uint64_t ct, uint64_t master_key)
 	return pt;
 }
 
+uint32_t leftHalf(uint64_t num){
+    return (num >> 32LL);
+}
+
+uint32_t rightHalf(uint64_t num){
+    return (num & 0xFFFFFFFFLL);
+}
+
+uint64_t combineHalves(uint32_t left, uint32_t right){
+    return ((uint64_t) left << 32LL) | right;
+}
 
 /*generate plaintext ciphertext pairs*/
-
 void generatePlainCipherPairs(uint64_t inputDiff){
-    
     //initialize random number generator
     time_t t;
     srand((unsigned) time(&t));
     uint64_t master_key = MASTERKEY;
     int i;
-    for(i = 0; i < numPairs; i++)
-    {
+     for(i = 0; i < numPairs; i++)
+     {
         plaintext1[i] = (rand() & 0xFFFFLL) << 48LL;
-        plaintext1[i] += (rand() & 0xFFFFLL) << 32LL;
-        plaintext1[i] += (rand() & 0xFFFFLL) << 16LL;
-        plaintext1[i] += (rand() & 0xFFFFLL);
+         plaintext1[i] += (rand() & 0xFFFFLL) << 32LL;
+         plaintext1[i] += (rand() & 0xFFFFLL) << 16LL;
+         plaintext1[i] += (rand() & 0xFFFFLL);
 
-        ciphertext1[i] = wes_encrypt(plaintext1[i], master_key);
-        plaintext2[i] = plaintext1[i] ^ inputDiff;
-        ciphertext2[i] = wes_encrypt(plaintext2[i], master_key); 
-    }
-
-}
-
+         ciphertext1[i] = wes_encrypt(plaintext1[i], master_key);
+         plaintext2[i] = plaintext1[i] ^ inputDiff;
+         ciphertext2[i] = wes_encrypt(plaintext2[i], master_key); 
+     }
+ }
 
 
-uint32_t crackLastRound(){
-    uint32_t DELTAZ = 0x8080D052;
-    printf("Using Z differential of 0x8080D052\n");
-    printf("Cracking last round...\n");
+// void reverseLastRoundPairs(uint32_t candidateKey){
+//     int c;
+//     for(c = 0; c < numPairs; c++){
+
+//         //grab previous values
+//         uint32_t CL1 = leftHalf(ciphertext1[c]);
+//         uint32_t CR1 = rightHalf(ciphertext1[c]);
+
+//         uint32_t CL2 = leftHalf(ciphertext2[c]);
+//         uint32_t CR2 = rightHalf(ciphertext2[c]);
+
+//         //CL will be equal to CR pairs from last round
+//         uint32_t left1 = CR1;
+//         uint32_t left2 = CR2; 
+
+//         //CR will be equal to CL XOR output round_func(CR, candidate key)
+//         uint32_t right1 = CL1 ^ (round_func(CR1, candidateKey));
+//         uint32_t right2 = CL2 ^ (round_func(CR2, candidateKey));
+
+
+
+//         //combine left and right halves
+//         /* Recombine 64bits ciphertext from 32bits-left and 32bits-right */
+//         ciphertext1[c] = combineHalves(left1, right1);
+//         ciphertext2[c] = combineHalves(left2, right2);
+//     }
+// }
+
+
+
+uint32_t candidateKeysR4[MAXPAIRS];
+int keycount4 = 0; //increment every time a candidate key is found
+
+void crackLastRound(uint32_t inputdifference){
+    printf("Using round 4 input differential: 0x%08X\n", inputdifference);
+
 
     uint32_t targetKey;
-
     for(targetKey = 0x00000000; targetKey < 0xFFFFFFFF; targetKey++){
         int score = 0;
-        //printf("testing target key: 0x%08X\n", targetKey);
 
         int c;
         for(c = 0; c < numPairs; c++)
         {
             //evaluate ciphertext pairs c1 and c2
             //grab keys
-            uint32_t CL1 = (ciphertext1[c] >> 32);
-            uint32_t CR1 = (ciphertext1[c] & 0xFFFFFFFF);
+            uint32_t CL1 = leftHalf(ciphertext1[c]);
+            uint32_t CR1 = rightHalf(ciphertext1[c]);
 
-            uint32_t CL2 = (ciphertext2[c] >> 32);
-            uint32_t CR2 = (ciphertext2[c] & 0xFFFFFFFF);
-
+            uint32_t CL2 = leftHalf(ciphertext2[c]);
+            uint32_t CR2 = rightHalf(ciphertext2[c]);
 
             //calculate output from fbox
             uint32_t outputFbox1 = round_func(CR1, targetKey);
@@ -310,9 +347,9 @@ uint32_t crackLastRound(){
             //find delta z by XOR output with CL
             uint32_t z1 = CL1 ^ outputFbox1;
             uint32_t z2 = CL2 ^ outputFbox2;
-            uint32_t deltaZ = z1 ^ z2;
+            uint32_t diff = z1 ^ z2;
 
-            if(deltaZ == DELTAZ){
+            if(diff == inputdifference){
                 score++;
             } else {
                 break;
@@ -321,40 +358,108 @@ uint32_t crackLastRound(){
 
         if(score == numPairs)
         {
-            printf("found subkey: 0x%08X\n", targetKey);
-            return targetKey;
+            //printf("found subkey: 0x%08X\n", targetKey);
+            //add subkey to candidate keys array
+            candidateKeysR4[keycount4] = targetKey;
+            keycount4++;
         }
     }
-
 }
+
+uint64_t crackMasterKey(){
+    //we found several candidate keys which represent the right half of the master key
+    //try all possible left half combinations 0x00000000 to 0xFFFFFFFF
+    //generate plaintext/ciphertext pairs
+    //generate the plaintext/ciphertext pairs
+    uint64_t plaintext1;
+    uint64_t ciphertext1;
+    //initialize random number generator
+    time_t t;
+    srand((unsigned) time(&t));
+    uint64_t master_key = MASTERKEY;
+
+        plaintext1 = (rand() & 0xFFFFLL) << 48LL;
+        plaintext1 += (rand() & 0xFFFFLL) << 32LL;
+        plaintext1 += (rand() & 0xFFFFLL) << 16LL;
+        plaintext1 += (rand() & 0xFFFFLL);
+
+        ciphertext1 = wes_encrypt(plaintext1, master_key);
+
+    uint64_t master;
+
+
+    uint32_t candidateKey = 0xA1CFBD1D;
+    uint32_t targetkey;
+
+    //try every candidate key
+    int i;
+    for(i = 0; i < keycount4; i++)
+    {
+        candidateKey = candidateKeysR4[i];
+        printf("\nTrying candidate key: 0x%08X\n", candidateKey);
+
+        for(targetkey = 0x00000000; targetkey < 0xFFFFFFFF; targetkey++)
+        {
+            master = combineHalves(targetkey, candidateKey);
+
+            //generate ciphertext using plaintext generated with unknown master key
+            uint64_t ciphertext2 = wes_encrypt(plaintext1, master);
+
+            //verify that plaintext matches
+            if(ciphertext2 == ciphertext1){
+                printf("\nFound masterkey!\n");
+                return master;
+            } 
+        }
+    }
+}
+
+
 
 /*Driver function*/
 int main()
 {
-    clock_t start,end;
-    double cpu_time;
+    clock_t start,end, r4end, r3end, r2end, r1end;
+    double r4Time, r3Time, r2Time;
 
     precompute_wes_permutation_mask(); //optimization: makes permutation step faster
 
+    //round 4 delta z
+    uint32_t deltaz = 0x8080D052;
+    uint64_t inputdiff = 0x6206000000000000;
 
     printf("Cracking 4-round WES cipher...\n");
-    printf("Using input differential: 0x62060000\n");
-    printf("Using delta z: 0x8080D052\n");
     start = clock();
 
-    /*generate plaintext ciphertext pairs*/
+    /*generate plaintext ciphertext pairs for round 4*/
     printf("Generating %i pairs of plaintext/ciphertext\n", numPairs);
-    uint64_t inputdiff = 0x6206000000000000;
     generatePlainCipherPairs(inputdiff);
     printf("Finished generating pairs...\n");
 
-    uint32_t r4key = crackLastRound();
+    //crack round 4
+    printf("\nCracking round 4 candidate keys...\n");
+    crackLastRound(deltaz);
+    printf("\nCandidate Keys: %i Total keys\n", keycount4);
+    for(int i = 0; i < keycount4; i++){
+        printf("Candidate key for r4: %08X\n", candidateKeysR4[i]);
+    }
+
+    r4end = clock();
+
+    r4Time = ((double)r4end-start)/CLOCKS_PER_SEC/60; //in minutes
+    printf("\nTotal time to crack round 4 subkeys: %f minutes\n", r4Time);
+
+    //crack master key
+    printf("\nCracking master key...\n");
+    uint64_t master = crackMasterKey();
+
+    r3end = clock();
+    r3Time = ((double)r3end-r4Time-start)/CLOCKS_PER_SEC/60; //in minutes
+    printf("\nTotal time to crack masterkey: %f minutes\n", r3Time);
+
+    printf("\nMaster key: 0x%016lX:\n", master);
+    
 
     end = clock();
-
-
-    cpu_time = ((double)end-start)/CLOCKS_PER_SEC/60; //in minutes
-    printf("Total time to crack last round subkey: %f minutes\n", cpu_time);
-
     return 0;
 }
